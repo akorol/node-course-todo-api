@@ -1,14 +1,15 @@
 require('./config/config.js')
 
 const _ = require('lodash');
-var express = require('express');
-var bodyParser = require('body-parser');
-var {ObjectID} = require('mongodb');
+const express = require('express');
+const bodyParser = require('body-parser');
+const {ObjectID} = require('mongodb');
+const bcrypt = require('bcryptjs');
 
-var {mongoose} = require('./db/mongoose.js');
-var {Todo} = require('./models/todo.js');
-var {User} = require('./models/user.js');
-var {authenticate} = require('./middleware/authenticate.js');
+const {mongoose} = require('./db/mongoose.js');
+const {Todo} = require('./models/todo.js');
+const {User} = require('./models/user.js');
+const {authenticate} = require('./middleware/authenticate.js');
 
 var app = express();
 const port = process.env.PORT || 3000;
@@ -88,7 +89,7 @@ app.patch('/todos/:id', (req, res) => {
 
   Todo.findByIdAndUpdate(id, {$set: body}, {new: true}).then((todo) => {
     if (!todo) {
-      return res.stat(404).send();
+      return res.status(404).send();
     }
 
     res.send({todo});
@@ -109,10 +110,20 @@ app.post('/users', (req, res) => {
   });
 });
 
-
-
 app.get('/users/me', authenticate, (req, res) => {
   res.send(req.user);
+});
+
+app.post('/users/login', (req, res) => {
+  var body = _.pick(req.body, ['email', 'password']);
+
+  User.findByCredentials(body.email, body.password).then((user) => {
+    return user.generateAuthToken().then((token) => {
+      res.header('x-auth', token).send(user);
+    });
+  }).catch((e) => {
+    res.status(400).send();
+  });
 });
 
 app.listen(port, () => {
